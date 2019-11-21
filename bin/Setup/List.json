@@ -1,0 +1,14 @@
+{
+    "修改--串口": {
+        "Devices": [
+            "254--设备",
+            "222--设备"
+        ],
+        "baudRate": "9600",
+        "com": "COM4",
+        "dataBits": "3",
+        "flowControl": "0",
+        "parity": "0",
+        "stopBits": "0"
+    }
+}
