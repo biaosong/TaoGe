@@ -309,6 +309,7 @@ QSerialPort *MainWindow::setSerialPortInfo(PortSettings* setting)
 ///设备连接函数
 void MainWindow::deviceConnect(QSerialPort* serialPort)
 {
+    m_firstDevice = true;
    if (!serialPort->open(QIODevice::ReadWrite))
    {
        QMessageBox::information(this, "提示", "串口连接失败");
@@ -509,6 +510,10 @@ void MainWindow::on_treeWidget_itemClicked(QTreeWidgetItem *item, int column)
         else {
             if(m_currentRunStatus == LOG_OFF)
             {
+                if(m_firstDevice)
+                {
+                    deviceDisConnect(m_pSerialPort);
+                }
                 ///获取当前设备串口信息
                 for(int index = 0; index < m_serialPortList.count();index++)
                 {
