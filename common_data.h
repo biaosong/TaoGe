@@ -42,7 +42,8 @@ enum
     TYPE_TEMPERATURE_READ,
     TYPE_TOTALFLOW_READ,
     TYPE_SETZERO,
-    TYPE_SETCURRENTFLOW
+    TYPE_SETCURRENTFLOW,
+    TYPE_NORMALSEND
 };
 
 enum{
@@ -78,9 +79,10 @@ class  SerialPortTree
 public:
     int index;
     QTreeWidgetItem *   serialPort;
-    PortSettings    *settings;
+    PortSettings    settings;
     QSerialPort     *SerialPort;
-    QList<QTreeWidgetItem *>    deviceList;
+    //QList<QMap<QString,QTreeWidgetItem *>>    deviceList;
+    QMap<QString,QTreeWidgetItem *>             deviceMap;
 };
 
 typedef  struct  ChartAxis

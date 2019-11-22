@@ -4,6 +4,8 @@
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
+  ,m_setupFileClass(new SetupFileClass)
+  ,m_portManageClass(new PortManageClass)
   ,m_serialPortNum(0)
   ,systemTimer(new QTimer)
 {
@@ -33,25 +35,27 @@ void MainWindow::readData()
             on_btn_getTemperture_clicked();
         break;
     }
+}
 
+void MainWindow::initTreeList(QList<SerialPortTree> serialPortTree)
+{
+    SerialPortTree _serialPortTree;
+    for(int index = 0; index < serialPortTree.count();index++)
+    {
+        _serialPortTree.deviceMap =  serialPortTree[index].deviceMap;
+        _serialPortTree.settings = serialPortTree[index].settings;
+        qDebug() << "MainWindow::initTreeList-------serialPortTree[index].settings:    "<< serialPortTree[index].settings.com;
+        qDebug() << "MainWindow::initTreeList-------serialPortTree[index].settings:    "<< serialPortTree[index].settings.dataBits;
+        _serialPortTree.SerialPort = m_portManageClass->setSerialPortInfo(serialPortTree[index].settings);
+        m_serialPortList.append(_serialPortTree);
+    }
+    refreshTreeWidgetList(m_serialPortList);
 }
 
 void MainWindow::init_mainForm()
 {
-//    m_customTabWidget_West = new CustomTabWidget_West(this);
-//    m_customTabWidget_West->resize(1024,644);
-//    m_customTabWidget_West->move(0,96);
     ui->treeWidget->setColumnCount(1);
-    ui->treeWidget->setHeaderLabel("MFC");
-
-
-//    QTreeWidgetItem *note2 = new QTreeWidgetItem(QStringList("设备2"));
-//    ui->treeWidget->addTopLevelItem(note2);
-//    QTreeWidgetItem *childtree1 = new QTreeWidgetItem(QStringList("child1"));
-//    QTreeWidgetItem *childtree2 = new QTreeWidgetItem(QStringList("child2"));
-//    note2->addChild(childtree1);
-//    note2->addChild(childtree2);
-
+    ui->treeWidget->setHeaderLabel(QStringLiteral("设备列表"));
     foreach(const QSerialPortInfo &info, QSerialPortInfo::availablePorts())
     {
         QSerialPort serial;
@@ -63,6 +67,19 @@ void MainWindow::init_mainForm()
         }
     }
     m_currentRunStatus = LOG_OFF;
+    initTreeList(m_setupFileClass->LoadJsonFile());
+    initPortInfo();
+}
+
+void MainWindow::initPortInfo()
+{
+    PortSettings settings;
+    settings.baudRate = "9600";
+    settings.dataBits = 3;
+    settings.parity = 0;
+    settings.stopBits = 0;
+    settings.flowControl = 0;
+    initPortSettings(settings);
 }
 
 void MainWindow::initChartView()
@@ -86,7 +103,7 @@ void MainWindow::initChartView_currentFlow()
 
    m_dateTimeAxis_currentFlow = new QDateTimeAxis();
 
-   QValueAxis *axisY_1 = new QValueAxis();
+   axisY_1 = new QValueAxis();
    QValueAxis *axisY_2 = new QValueAxis();
 
    m_dateTimeAxis_currentFlow->setRange(QDateTime::currentDateTime(),QDateTime::currentDateTime().addSecs(1800));
@@ -200,110 +217,49 @@ void MainWindow::refreshAxisX(int type)
     }
 }
 
-void MainWindow::refreshTreeWidgetList()
+void MainWindow::initPortSettings(PortSettings settings)
 {
-    for(int index = 0; index < m_serialPortList.count();index++)
+    ui->comboBox_COM->setCurrentText(settings.com);
+    ui->comboBox_baudRate->setCurrentText(settings.baudRate);
+    ui->comboBox_dataBits->setCurrentIndex(settings.dataBits);
+    ui->comboBox_parity->setCurrentIndex(settings.parity);
+    ui->comboBox_stopBits->setCurrentIndex(settings.stopBits);
+    ui->comboBox_flowControl->setCurrentIndex(settings.flowControl);
+}
+
+//自适应currentFlow坐标系
+void MainWindow::setCurrentFlowAdaptiveCoordinateSystem(QString newReceiveData)
+{
+    if(!m_firstReadCurrentFlow)
     {
-        ui->treeWidget->addTopLevelItem(m_serialPortList[index].serialPort);
-        for(int num = 0;num < m_serialPortList[index].deviceList.count();num++)
+        if(newReceiveData.toDouble() >(-9.5) &&newReceiveData.toDouble() < 10)
         {
-            m_serialPortList[index].serialPort->addChild(m_serialPortList[index].deviceList[num]);
+            axisY_1->setRange(newReceiveData.toDouble()-0.5,newReceiveData.toDouble()+0.5);
+            m_currentFlow_Low =m_currentFlow_High= newReceiveData.toDouble();
+            m_firstReadCurrentFlow =true;
+        }
+    }
+    else {
+        if(newReceiveData.toDouble() < m_currentFlow_Low)
+            m_currentFlow_Low = newReceiveData.toDouble();
+        else if(newReceiveData.toDouble() > m_currentFlow_High)
+            m_currentFlow_High = newReceiveData.toDouble();
+        axisY_1->setRange(m_currentFlow_Low-0.5,m_currentFlow_High+0.5);
+    }
+}
+
+void MainWindow::refreshTreeWidgetList(QList<SerialPortTree> serialPertTree)
+{
+    for(int index = 0; index < serialPertTree.count();index++)
+    {
+        ui->treeWidget->addTopLevelItem(serialPertTree[index].serialPort);
+        QMap<QString,QTreeWidgetItem *>::const_iterator itor;
+        for(itor = serialPertTree[index].deviceMap.constBegin();itor != serialPertTree[index].deviceMap.constEnd();itor++)
+        {
+            serialPertTree[index].serialPort->addChild(itor.value());
         }
     }
 
-}
-
-void MainWindow::connectHandle()
-{
-
-}
-
-QSerialPort *MainWindow::setSerialPortInfo(PortSettings* setting)
-{
-    QSerialPort* serialPort = new QSerialPort(this);
-    serialPort->setPortName(setting->com);
-    serialPort->setBaudRate(setting->baudRate.toInt());
-    switch (setting->dataBits)
-    {
-    case 0:
-        serialPort->setDataBits(QSerialPort::Data5);
-        break;
-    case 1:
-        serialPort->setDataBits(QSerialPort::Data6);
-        break;
-    case 2:
-        serialPort->setDataBits(QSerialPort::Data7);
-        break;
-    case 3:
-        serialPort->setDataBits(QSerialPort::Data8);
-        break;
-    case 4:
-        serialPort->setDataBits(QSerialPort::UnknownDataBits);
-        break;
-    default:
-        break;
-    }
-
-    switch (setting->parity)
-    {
-    case 0:
-        serialPort->setParity(QSerialPort::NoParity);
-        break;
-    case 1:
-        serialPort->setParity(QSerialPort::OddParity);
-        break;
-    case 2:
-        serialPort->setParity(QSerialPort::EvenParity);
-        break;
-    case 3:
-        serialPort->setParity(QSerialPort::SpaceParity);
-        break;
-    case 4:
-        serialPort->setParity(QSerialPort::MarkParity);
-        break;
-    case 5:
-        serialPort->setParity(QSerialPort::UnknownParity);
-        break;
-    default:
-        break;
-    }
-
-    switch (setting->stopBits)
-    {
-    case 0:
-        serialPort->setStopBits(QSerialPort::OneStop);
-        break;
-    case 1:
-        serialPort->setStopBits(QSerialPort::OneAndHalfStop);
-        break;
-    case 2:
-        serialPort->setStopBits(QSerialPort::TwoStop);
-        break;
-    case 3:
-        serialPort->setStopBits(QSerialPort::UnknownStopBits);
-        break;
-    default:
-        break;
-    }
-
-    switch (setting->flowControl)
-    {
-    case 0:
-        serialPort->setFlowControl(QSerialPort::NoFlowControl);
-        break;
-    case 1:
-        serialPort->setFlowControl(QSerialPort::HardwareControl);
-        break;
-    case 2:
-        serialPort->setFlowControl(QSerialPort::SoftwareControl);
-        break;
-    case 3:
-        serialPort->setFlowControl(QSerialPort::UnknownFlowControl);
-        break;
-    default:
-        break;
-    }
-    return serialPort;
 }
 
 ///设备连接函数
@@ -350,6 +306,7 @@ void MainWindow::slot_serialReadData()
 void MainWindow::refreshRespondUI(QString receiveData)
 {
     qDebug() << "-------------------------------------------------------------------:       " << receiveData;
+    QString originalData = receiveData;
     QString newReceiveData;
     receiveData.replace("@","");
     newReceiveData =  receiveData.remove("000ACK").remove(";FF").trimmed();
@@ -385,8 +342,6 @@ void MainWindow::refreshRespondUI(QString receiveData)
             m_series_temperature->append(QDateTime::currentMSecsSinceEpoch(),newReceiveData.toDouble());
             m_temperatureMap.insert(QDateTime::currentDateTime(),newReceiveData.toDouble());
         }
-
-        //char->axisY()->setRange(newReceiveData.toDouble()-100,newReceiveData.toDouble()+100);
         m_currentRunType = GET_CURRENTFLOW;
     break;
     }
@@ -407,12 +362,13 @@ void MainWindow::refreshRespondUI(QString receiveData)
     {
         ui->lineEdit_getCurrentFlow->clear();
         ui->lineEdit_getCurrentFlow->setText(newReceiveData);
+        setCurrentFlowAdaptiveCoordinateSystem(newReceiveData);
         if(QDateTime::currentDateTime() > m_endTime)
         {
             refreshAxisX(GET_CURRENTFLOW);
             m_series_currentFlow->clear();
         }
-        if(newReceiveData.toDouble() >0.5 &&newReceiveData.toDouble() < 10)
+        if(newReceiveData.toDouble() > (-9.5) &&newReceiveData.toDouble() < 10)
         {
             m_series_currentFlow->append(QDateTime::currentMSecsSinceEpoch(),newReceiveData.toDouble());
             m_currentFlowMap.insert(QDateTime::currentDateTime(),newReceiveData.toDouble());
@@ -421,24 +377,36 @@ void MainWindow::refreshRespondUI(QString receiveData)
 
     break;
     }
+    case TYPE_NORMALSEND:
+    {
+        if(ui->checkBox->isChecked())
+        {
+            ui->textEdit->append("\r\n"+originalData);
+        }else {
+            ui->textEdit->clear();
+            ui->textEdit->append(originalData);
+        }
+        break;
+    }
     default:
 
     break;
     }
 }
 
-void MainWindow::addAddressHandle(QString port, QString address)
+void MainWindow::addAddressHandle(QString DeviceName,QString port, QString address)
 {
     for(int index = 0; index < m_serialPortList.count();index++)
     {
         if(m_serialPortList[index].serialPort->text(0) == port)
         {
-            QTreeWidgetItem *childtree = new QTreeWidgetItem(QStringList(QString("%1").arg(address)));
-            m_serialPortList[index].deviceList.append(childtree);
+            QTreeWidgetItem *childtree = new QTreeWidgetItem(QStringList(QString("%1").arg(DeviceName)));
+            m_serialPortList[index].deviceMap.insert(address,childtree);
+            //{std::make_pair(DeviceName,childtree)}
         }
     }
-    refreshTreeWidgetList();
-    writeJsonFile(m_serialPortList);
+    refreshTreeWidgetList(m_serialPortList);
+    m_setupFileClass->writeJsonFile(m_serialPortList);
 }
 
 void MainWindow::addSerialPortHandle(QString serialPort)
@@ -447,11 +415,10 @@ void MainWindow::addSerialPortHandle(QString serialPort)
     serialPortTree.index = 0;
     serialPortTree.serialPort = new QTreeWidgetItem(QStringList(QString("%1").arg(serialPort)));
     m_serialPortList.append(serialPortTree);
-    refreshTreeWidgetList();
+    refreshTreeWidgetList(m_serialPortList);
     ui->btn_addSerialPort->setEnabled(false);
     ui->btn_addDevice->setEnabled(false);
     ui->btn_confirm->setEnabled(false);
-
 }
 
 void MainWindow::on_btn_addDevice_clicked()
@@ -468,20 +435,6 @@ void MainWindow::on_btn_addDevice_clicked()
 */
 void MainWindow::on_btn_addSerialPort_clicked()
 {
-//    QTreeWidgetItem *note = new QTreeWidgetItem(QStringList("未命名串口"));
-//    ui->treeWidget->addTopLevelItem(note);
-//    if(m_serialPortList.count() == 0)
-//    {
-//        SerialPortTree serialPortTree;
-//        serialPortTree.index = 0;
-//        serialPortTree.serialPort = note;
-//        m_serialPortList.insert(m_serialPortList.count(),serialPortTree);
-//    }else {
-//        SerialPortTree serialPortTree;
-//        serialPortTree.index = 0;
-//        serialPortTree.serialPort = note;
-//        m_serialPortList.insert(m_serialPortList.count(),serialPortTree);
-//    }
     m_formCreateNewSerialPort = new FormCreateNewSerialPort();
     m_formCreateNewSerialPort->showNormal();
     connect(m_formCreateNewSerialPort,&FormCreateNewSerialPort::addSerialPortSignal,this,&MainWindow::addSerialPortHandle);
@@ -521,12 +474,10 @@ void MainWindow::on_treeWidget_itemClicked(QTreeWidgetItem *item, int column)
                     {
                         ///创建连接
                         m_pSerialPort = m_serialPortList[index].SerialPort;//当前串口
-    //                    qDebug() << "currentTreeItem---serialPort---com:          " <<  m_serialPortList[index].settings->com;
-    //                    qDebug() << "currentTreeItem---serialPort---baudRate:          " <<  m_serialPortList[index].settings->baudRate;
-    //                    qDebug() << "currentTreeItem---serialPort---dataBits:          " <<  m_serialPortList[index].settings->dataBits;
-                        qDebug() << "++++++++++++++++++++++++++++++++++++++++";
+                        initPortSettings(m_serialPortList[index].settings);
                         deviceConnect(m_serialPortList[index].SerialPort);
-                        m_currentAddress = item->text(0).remove("--设备");
+                        //m_currentAddress = item->text(0).remove("--设备");
+                        m_currentAddress = m_portManageClass->getDeviceByName(m_serialPortList,item);
                     }
                 }
                 currentTreeChildItem = item;
@@ -549,8 +500,9 @@ void MainWindow::on_treeWidget_itemClicked(QTreeWidgetItem *item, int column)
                         {
                             ///创建连接
                             m_pSerialPort = m_serialPortList[index].SerialPort;//当前串口
+                            initPortSettings(m_serialPortList[index].settings);
                             deviceConnect(m_serialPortList[index].SerialPort);
-                            m_currentAddress = item->text(0).remove("--设备");
+                            m_currentAddress = m_portManageClass->getDeviceByName(m_serialPortList,item);
                         }
                     }
                     currentTreeChildItem = item;
@@ -578,22 +530,20 @@ void MainWindow::on_btn_confirm_clicked()
     {
         if(currentTreeItem->text(0) == m_serialPortList[index].serialPort->text(0))
         {
-            PortSettings *setting  = new PortSettings;
-            setting->com = ui->comboBox_COM->currentText();
-            setting->baudRate = ui->comboBox_baudRate->currentText();
-            setting->dataBits = ui->comboBox_dataBits->currentIndex();
-            setting->parity = ui->comboBox_parity->currentIndex();
-            setting->stopBits = ui->comboBox_stopBits->currentIndex();
-            setting->flowControl = ui->comboBox_flowControl->currentIndex();
-            qDebug() << "setting:       " << setting->baudRate;
-            //qDebug() << "setSerialPortInfo:       " << setSerialPortInfo(setting)->readAll();
-            m_serialPortList[index].SerialPort = setSerialPortInfo(setting);
+            PortSettings setting;
+            setting.com = ui->comboBox_COM->currentText();
+            setting.baudRate = ui->comboBox_baudRate->currentText();
+            setting.dataBits = ui->comboBox_dataBits->currentIndex();
+            setting.parity = ui->comboBox_parity->currentIndex();
+            setting.stopBits = ui->comboBox_stopBits->currentIndex();
+            setting.flowControl = ui->comboBox_flowControl->currentIndex();
+            m_serialPortList[index].SerialPort = m_portManageClass->setSerialPortInfo(setting);
             m_serialPortList[index].settings = setting;
         }
     }
     ui->btn_addSerialPort->setEnabled(true);
     ui->btn_addDevice->setEnabled(true);
-    writeJsonFile(m_serialPortList);
+    m_setupFileClass->writeJsonFile(m_serialPortList);
 }
 
 void MainWindow::on_btn_getCurrentFlow_clicked()
@@ -667,131 +617,15 @@ void MainWindow::on_btn_logOn_clicked()
 void MainWindow::on_btn_logOff_clicked()
 {
     systemTimer->stop();
-    writeToCsvFileHandle(m_currentFlowMap,GET_CURRENTFLOW);
-    writeToCsvFileHandle(m_temperatureMap,GET_TEMPERATURE);
+    m_setupFileClass->writeToCsvFileHandle(m_currentFlowMap,GET_CURRENTFLOW);
+    m_setupFileClass->writeToCsvFileHandle(m_temperatureMap,GET_TEMPERATURE);
     m_currentRunStatus = LOG_OFF;
     m_currentFlowMap.clear();
-
 }
 
-void MainWindow::writeToCsvFileHandle(QMap<QDateTime, double> m_seriesPoint,int fileType)
+void MainWindow::on_btn_send_clicked()
 {
-    //QString txtFilePath = QDir::currentPath().replace("bin","/File/CSV/") + getCurrentDatetimeForFolder();
-    QString txtFilePath = QDir::currentPath()+"/File/CSV/" + getCurrentDatetimeForFolder();
-    if(isDirExist(txtFilePath))
-    {
-        QString currentTime = getCurrentDatetimeForFile();
-        QFile f;
-        switch (fileType) {
-        case GET_CURRENTFLOW:
-            f.setFileName(txtFilePath+"/" + currentTime +"-currentFlow" + ".csv");
-        break;
-        case GET_TOTALFLOW:
-            f.setFileName(txtFilePath+"/" + currentTime +"-totalFlow" + ".csv");
-        break;
-        case GET_TEMPERATURE:
-            f.setFileName(txtFilePath+"/" + currentTime +"-temperature" + ".csv");
-        break;
-        }
-        //QFile f(txtFilePath+"/" + currentTime  + ".csv");
-        if(!f.open(QIODevice::WriteOnly | QFile::Truncate))
-        {
-            QMessageBox::about(nullptr, "文件", "文件打开失败");
-        }
-        QTextStream txtOutput(&f);
-        QMap<QDateTime, double>::ConstIterator i=m_seriesPoint.constBegin();
-        while(i!=m_seriesPoint.constEnd())
-        {
-            //qDebug()<<i.key()<<": "<<i.value();
-             txtOutput << i.key().toString("hh:mm:ss") << "," << i.value() << endl;
-            ++i;
-        }
-        f.close();
-    }
-}
-
-bool MainWindow::isDirExist(QString fullPath)
-{
-    QDir dir(fullPath);
-    if(dir.exists())
-    {
-      return true;
-    }
-    else
-    {
-       bool ok = dir.mkpath(fullPath);//创建多级目录
-       return ok;
-    }
-}
-
-QString MainWindow::getCurrentDatetimeForFile()
-{
-    QDateTime current_date_time =QDateTime::currentDateTime();
-    QString current_date =current_date_time.toString("yyyyMMddhhmmss");
-    return current_date;
-}
-
-QString MainWindow::getCurrentDatetimeForFolder()
-{
-    QDateTime current_date_time =QDateTime::currentDateTime();
-    QString current_date =current_date_time.toString("yyyy-MM-dd");
-    return current_date;
-}
-
-void MainWindow::importPortInfo()
-{
-
-}
-
-void MainWindow::writeJsonFile(QList<SerialPortTree> serialPortTree)
-{
-    qDebug() << "0000000000000000000000000000000111111";
-    QJsonObject jsonObject;
-    qDebug() << "0000000000000000000000000000000222" << serialPortTree.count();
-    for(int index = 0;index < serialPortTree.count();index++)
-    {
-        QJsonObject subObject;
-        subObject.insert("com",QJsonValue(QString("%1").arg(serialPortTree[index].settings->com)));
-        subObject.insert("baudRate",QJsonValue(QString("%1").arg(serialPortTree[index].settings->baudRate)));
-        subObject.insert("dataBits",QJsonValue(QString("%1").arg(serialPortTree[index].settings->dataBits)));
-        subObject.insert("parity",QJsonValue(QString("%1").arg(serialPortTree[index].settings->parity)));
-        subObject.insert("stopBits",QJsonValue(QString("%1").arg(serialPortTree[index].settings->stopBits)));
-        subObject.insert("flowControl",QJsonValue(QString("%1").arg(serialPortTree[index].settings->flowControl)));
-        qDebug() << "0000000000000000000000000000000333" << serialPortTree[index].deviceList.count();
-        if(serialPortTree[index].deviceList.count())
-        {
-            QJsonArray arrayObject;
-            for(int num = 0 ;num < serialPortTree[index].deviceList.count();num++)
-            {
-                arrayObject.append(QString("%1").arg(serialPortTree[index].deviceList[num]->text(0)));
-            }
-            subObject.insert("Devices",arrayObject);
-        }
-        jsonObject.insert(QString("%1").arg(serialPortTree[index].serialPort->text(0)),QJsonValue(subObject));
-    }
-
-
-    qDebug() << "0000000000000000000000000000000333";
-
-    //内存中的数据写到文件
-    QJsonDocument doc(jsonObject);
-    //将json对象转换成字符串
-    QByteArray data=doc.toJson();
-    QString txtFilePath = QDir::currentPath()+"/Setup";
-    if(isDirExist(txtFilePath))
-    {
-        QFile file(txtFilePath+"/List.json");
-    //    file.open(QIODevice::WriteOnly);
-    //    file.write(data);
-    //    file.close();
-
-        if(!file.open(QIODevice::WriteOnly | QFile::Truncate))
-        {
-            QMessageBox::about(nullptr, "文件", "文件打开失败");
-        }
-        QTextStream txtOutput(&file);
-        file.write(data);
-        file.close();
-    }
-
+    receiveDataString.clear();
+    sendCMD(ui->textEdit_2->toPlainText());
+    sendType = TYPE_NORMALSEND;
 }

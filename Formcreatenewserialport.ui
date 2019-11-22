@@ -72,7 +72,7 @@
     </item>
    </layout>
   </widget>
-  <widget class="QPushButton" name="btn_disconnect">
+  <widget class="QPushButton" name="btn_cancel">
    <property name="geometry">
     <rect>
      <x>160</x>
@@ -100,7 +100,7 @@
     </font>
    </property>
    <property name="text">
-    <string>断开连接</string>
+    <string>取消</string>
    </property>
   </widget>
   <widget class="QPushButton" name="btn_confirm">

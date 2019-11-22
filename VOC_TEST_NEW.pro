@@ -31,14 +31,18 @@ SOURCES += \
         mainwindow.cpp \
     FormCreateNewSerialPort.cpp \
     customtabwidget_west.cpp \
-    FormSettingDialog.cpp
+    FormSettingDialog.cpp \
+    SetupFileClass.cpp \
+    PortManageClass.cpp
 
 HEADERS += \
         mainwindow.h \
     FormCreateNewSerialPort.h \
     customtabwidget_west.h \
     FormSettingDialog.h \
-    common_data.h
+    common_data.h \
+    SetupFileClass.h \
+    PortManageClass.h
 
 FORMS += \
         mainwindow.ui \

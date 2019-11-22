@@ -8,6 +8,9 @@
 #include "FormSettingDialog.h"
 #include "customtabwidget_west.h"
 
+#include "SetupFileClass.h"
+#include "PortManageClass.h"
+
 
 
 #include "common_data.h"
@@ -27,11 +30,9 @@ public:
 public:
     void init_mainForm();
 
-    void refreshTreeWidgetList();
+    void initPortInfo();
 
-    void connectHandle();
-
-    QSerialPort* setSerialPortInfo(PortSettings *setting);
+    void refreshTreeWidgetList(QList<SerialPortTree> serialPertTree);
 
     ///设备连接函数
     void deviceConnect(QSerialPort* serialPort);
@@ -52,16 +53,9 @@ public:
 
     void refreshAxisX(int type);
 
-    void writeToCsvFileHandle(QMap<QDateTime,double> m_seriesPoint,int fileType);
+    void initPortSettings(PortSettings settings);
 
-    bool isDirExist(QString fullPath);
-
-    QString getCurrentDatetimeForFile();
-    QString getCurrentDatetimeForFolder();
-
-    void importPortInfo();
-
-    void writeJsonFile(QList<SerialPortTree> serialPortTree);
+    void setCurrentFlowAdaptiveCoordinateSystem(QString newReceiveData);
 
 public slots:
 
@@ -69,9 +63,11 @@ public slots:
 
     void readData();
 
+    void initTreeList(QList<SerialPortTree> serialPertTree);
+
 private slots:
 
-    void addAddressHandle(QString port,QString address);
+    void addAddressHandle(QString DeviceName,QString port,QString address);
 
     void addSerialPortHandle(QString serialPort);
 
@@ -104,12 +100,18 @@ private slots:
 
 
 
+    void on_btn_send_clicked();
+
 private:
     Ui::MainWindow *ui;
 
     FormCreateNewSerialPort                                                     *m_formCreateNewSerialPort;
 
     FormSettingDialog                                                                *m_formSettingDialog;
+
+    SetupFileClass                                                                       *m_setupFileClass;
+
+    PortManageClass                                                                  *m_portManageClass;
 
     CustomTabWidget_West                                                       *m_customTabWidget_West;
 
@@ -150,6 +152,9 @@ private:
      QChartView                *m_chartView_totalFlow;
      QChartView                *m_chartView_temperature;
 
+
+     QValueAxis *axisY_1;
+
      QTimer                              *systemTimer;
 
      int                                                m_currentRunType;
@@ -166,6 +171,11 @@ private:
      int                                               m_currentRunStatus;
 
      bool                                            m_firstDevice = false;
+
+     bool                                            m_firstReadCurrentFlow = false;
+
+     double                                        m_currentFlow_Low;
+     double                                        m_currentFlow_High;
 
 };
 

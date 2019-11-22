@@ -22,10 +22,12 @@ public:
 signals:
     //void portSettingSignal(PortSettings setting);
 
-    void addAddressSignal(QString port,QString address);
+    void addAddressSignal(QString DeviceName,QString port,QString address);
 
 private slots:
     void on_btn_confirm_clicked();
+
+    void on_btn_cancel_clicked();
 
 public:
     void initSerialPort(QList<SerialPortTree> itemList);
